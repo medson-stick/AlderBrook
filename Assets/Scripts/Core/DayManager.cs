@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 // Tracks the current day and time.
@@ -11,13 +12,19 @@ public class DayManager : MonoBehaviour
     [SerializeField] private int dayEndHour = 26;
     [SerializeField] private float secondsPerGameMinute = 1f;
 
+    [Header("Day Transition")]
+    [SerializeField] private float fadeDuration = 0.5f;
+
     public int CurrentDay { get; private set; }
     public int CurrentHour { get; private set; }
     public int CurrentMinute { get; private set; }
 
     private float minuteTimer;
+    private ScreenFader screenFader;
+    private PlayerController playerController;
+    private bool isChangingDay;
 
-    // Keeps only one DayManager alive.
+    // Keeps only one DayManager alive and caches the fade and player.
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -26,6 +33,11 @@ public class DayManager : MonoBehaviour
             return;
         }
         Instance = this;
+
+        screenFader = FindFirstObjectByType<ScreenFader>();
+        if (screenFader == null) screenFader = gameObject.AddComponent<ScreenFader>();
+
+        playerController = FindFirstObjectByType<PlayerController>();
     }
 
     // Sets the starting day and time.
@@ -61,14 +73,31 @@ public class DayManager : MonoBehaviour
         if (CurrentHour >= dayEndHour) StartNewDay();
     }
 
-    // Advances to the next day and fires the NewDay event.
+    // Starts the fade-out, advances the day, then fades back in.
     public void StartNewDay()
     {
+        if (isChangingDay) return;
+        StartCoroutine(NewDayRoutine());
+    }
+
+    // Handles the full day transition.
+    private IEnumerator NewDayRoutine()
+    {
+        isChangingDay = true;
+        if (playerController != null) playerController.SetInputEnabled(false);
+
+        if (screenFader != null) yield return screenFader.FadeOut(fadeDuration);
+
         CurrentDay++;
         CurrentHour = dayStartHour;
         CurrentMinute = 0;
         minuteTimer = 0f;
         GameEvents.NewDay.Invoke(CurrentDay);
+
+        if (screenFader != null) yield return screenFader.FadeIn(fadeDuration);
+        if (playerController != null) playerController.SetInputEnabled(true);
+
+        isChangingDay = false;
     }
 
     // Returns the current time as a 12-hour clock string.

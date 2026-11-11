@@ -1,0 +1,12 @@
+The overall concept I intend on making is a replica farming sim similar to Stardew Valley and Fields of Mistria. I want to use this core loop, prototype, etc. for my independent study project next semester where I want to finalize and complete the entire game.
+
+This prototype will contain:
+- movement
+- farming system
+- shop system
+- exploring different scenes travelling from area to area (for this, farm -> town -> [if time allows it, fishing beach])
+- Add mutated plant chances
+
+I don't want the game to be a 1-to-1 replica, but it will be inspired by the other games. After this semester, I intend on expanding the world, systems, and interactions the player can have.
+
+THIS IS A SOLO PROJECT
