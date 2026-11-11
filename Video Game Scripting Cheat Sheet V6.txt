@@ -1,0 +1,1207 @@
+Video Game Scripting Cheat Sheet & References
+Used AI to help format, elaborate, and type out the scripts here, so I don’t mistype them and understand what I’m looking at when referencing slideshow code.
+Section 1: Fundamentals
+C# Language Refresher: C# is a strongly typed, object-oriented programming language. Variables must specify data types (e.g., int, float, bool, string, Vector2, Transform).
+Classes & Inheritance: Most Unity scripts inherit from MonoBehaviour, which grants access to Unity events (Start, Update, FixedUpdate) and attached components (transform, gameObject).
+Naming Conventions:
+PascalCase: Classes, methods, properties, public variables (e.g., PlayerController, MoveSpeed).
+camelCase: Private variables, method parameters, local variables (e.g., moveInput, isGrounded).
+Game Loop Architecture: Games operate on a continuous loop consisting of updating logic and drawing frames. In Unity, frame-by-frame updates are handled inside Update(), while physics-based ticks run inside FixedUpdate().
+Basic Collisions (Non-Physics):
+Bounding Box Collision (AABB): Axis-Aligned Bounding Box overlap checks compare minimum and maximum bounds along X and Y axes.
+Bounding Circle Collision: Checks if the distance between two center points is less than the sum of their radii: (posA - posB).magnitude < (radiusA + radiusB).
+Key Code Snippets
+Basic MonoBehaviour Script Structure:
+using UnityEngine; // Import the standard Unity engine functionality namespace    
+    
+public class FundamentalsBasics : MonoBehaviour // Declare a public class that inherits from Unity's MonoBehaviour base class    
+{ // Open class body    
+    [SerializeField] private float moveSpeed = 5f; // Expose moveSpeed float variable to Inspector while keeping it private    
+    private Vector2 currentPosition; // Store the object's current position in 2D space    
+    
+    private void Start() // Called automatically by Unity on the frame when the script is enabled before updates    
+    { // Open Start method body    
+        currentPosition = transform.position; // Cache the starting world position from the attached Transform component    
+    } // Close Start method body    
+    
+    private void Update() // Called automatically by Unity once every single frame    
+    { // Open Update method body    
+        float horizontal = Input.GetAxis("Horizontal"); // Read horizontal axis input from keyboard or controller (-1 to 1)    
+        currentPosition.x += horizontal * moveSpeed * Time.deltaTime; // Smoothly update x-position frame-independently based on speed and delta time    
+        transform.position = currentPosition; // Assign the updated 2D position back to the GameObject's Transform    
+    } // Close Update method body    
+} // Close class body
+Manual Bounding Box & Point Collision Check:
+public class CollisionUtils // Declare a public standard C# utility class not attached to a GameObject    
+{ // Open class body    
+    public static bool IsPointInsideAABB(Vector2 point, Vector2 boxMin, Vector2 boxMax) // Static method checking if a 2D point lies within min/max box bounds    
+    { // Open method body    
+        return point.x >= boxMin.x && point.x <= boxMax.x && point.y >= boxMin.y && point.y <= boxMax.y; // Return true if point is between min and max bounds on both X and Y axes    
+    } // Close method body    
+    
+    public static bool IsCircleIntersecting(Vector2 posA, float radiusA, Vector2 posB, float radiusB) // Static method checking overlap between two circles    
+    { // Open method body    
+        float distance = Vector2.Distance(posA, posB); // Calculate Euclidean distance between circle centers    
+        return distance <= (radiusA + radiusB); // Return true if center distance is less than or equal to sum of radii    
+    } // Close method body    
+} // Close class body
+Section 2: Physics & Vectors
+Vectors in 2D Space: A Vector2 represents direction and magnitude (length).
+magnitude: Length of the vector calculated via Mathf.Sqrt(x*x + y*y).
+normalized: Returns a vector with the same direction but a magnitude of 1 (unit vector). Always normalize movement vectors to prevent faster diagonal movement.
+Vector2.Distance(a, b): Returns the scalar distance between points a and b.
+Framerate Independence: Frame rates fluctuate. Multiplying movement values by Time.deltaTime (time in seconds since last frame) ensures movement occurs at a constant rate per second rather than per frame.
+Physics Kinematics:
+Position: Current location in world space.
+Velocity: Rate of change of position over time (velocity = direction * speed).
+Acceleration: Rate of change of velocity over time (e.g., gravity acceleration).
+Terminal Velocity: Maximum fall speed achievable. Enforced in Unity using Vector2.ClampMagnitude() or clamping velocity components.
+Key Code Snippets
+Vector Math, Gravity Accumulation, and Terminal Velocity:
+using UnityEngine; // Import standard Unity core namespace    
+    
+public class CustomPhysics2D : MonoBehaviour // Define component class for manual kinematics calculation    
+{ // Open class body    
+    [SerializeField] private float moveSpeed = 8f; // Field for configurable maximum horizontal velocity    
+    [SerializeField] private float gravityAccel = 19.6f; // Field for custom downward gravity acceleration rate    
+    [SerializeField] private float terminalVelocity = 20f; // Field for maximum allowed falling speed cap    
+    
+    private Vector2 velocity; // Internal vector storing current combined velocity state    
+    
+    private void Update() // Called once per frame to update input and manual physics    
+    { // Open Update method body    
+        float moveX = Input.GetAxisRaw("Horizontal"); // Get unformatted horizontal input (-1, 0, or 1)    
+        float moveY = Input.GetAxisRaw("Vertical"); // Get unformatted vertical input (-1, 0, or 1)    
+        Vector2 inputDirection = new Vector2(moveX, moveY).normalized; // Construct unit vector ensuring diagonal magnitude is capped at 1    
+    
+        velocity.x = inputDirection.x * moveSpeed; // Calculate target horizontal velocity from direction and speed    
+    
+        velocity.y -= gravityAccel * Time.deltaTime; // Accelerate downward velocity by gravity multiplied by frame time    
+    
+        velocity.y = Mathf.Max(velocity.y, -terminalVelocity); // Clamp downward velocity so falling speed never exceeds terminal velocity    
+    
+        transform.position += (Vector3)(velocity * Time.deltaTime); // Apply velocity to position scaled by frame time for smooth movement    
+    } // Close Update method body    
+} // Close class body
+Section 3: Rigidbodies & Collisions
+Rigidbody Type
+Description
+Use Cases
+ 
+Dynamic
+Fully simulated by Unity's physics engine. Responds to forces, gravity, and collisions.
+Player characters, enemies, physics debris, projectiles.
+Kinematic
+Not affected by forces or gravity. Moved explicitly via code/velocity. Can collide with Dynamic objects.
+Moving platforms, scripted doors, kinematic elevators.
+Static
+Designed to never move. Does not consume physics recalculation overhead unless moved.
+Walls, floors, terrain, static obstacles.
+
+FixedUpdate vs. Update:
+Update(): Runs once per frame (variable time step). Used for user input and non-physics logic.
+FixedUpdate(): Runs on a fixed timer (default 0.02s / 50Hz). All Rigidbody physics manipulation and force application MUST occur in FixedUpdate().
+Force Modes:
+ForceMode2D.Force: Applies continuous force using mass (ideal for wind, thrusters).
+ForceMode2D.Impulse: Applies an instant force impulse using mass (ideal for jumps, explosions).
+Collisions vs. Triggers:
+Colliders (Is Trigger = false): Physical solid barriers. Invokes OnCollisionEnter2D, OnCollisionStay2D, OnCollisionExit2D.
+Triggers (Is Trigger = true): Non-solid detection zones. Invokes OnTriggerEnter2D, OnTriggerStay2D, OnTriggerExit2D.
+Layer Collision Matrix: Configured under Project Settings > Physics 2D. Used to disable collision checks between specific object layers (e.g., Player projectiles ignoring Player body).
+Key Code Snippets
+Rigidbody2D Movement & Physics Callbacks:
+using UnityEngine; // Import standard engine namespace    
+    
+[RequireComponent(typeof(Rigidbody2D))] // Automatically attach a Rigidbody2D component if one does not exist    
+public class RigidbodyController2D : MonoBehaviour // Physics movement controller class    
+{ // Open class body    
+    [SerializeField] private float moveSpeed = 7f; // Configurable movement speed property    
+    [SerializeField] private float jumpForce = 12f; // Configurable jump impulse magnitude    
+        
+    private Rigidbody2D rb; // Cached reference to attached Rigidbody2D    
+    private float horizontalInput; // Stores raw horizontal input value read during Update    
+    private bool jumpRequested; // Flag tracking if jump input was pressed during the frame    
+    
+    private void Awake() // Called when the script instance is being initialized    
+    { // Open Awake method body    
+        rb = GetComponent<Rigidbody2D>(); // Retrieve and cache attached Rigidbody2D component reference    
+    } // Close Awake method body    
+    
+    private void Update() // Executed once every frame for rendering and input polling    
+    { // Open Update method body    
+        horizontalInput = Input.GetAxisRaw("Horizontal"); // Poll raw horizontal axis input (-1, 0, or 1)    
+        if (Input.GetButtonDown("Jump")) // Check if jump button was initiated during this frame    
+        { // Open if block    
+            jumpRequested = true; // Set jump request flag to true for handling in FixedUpdate    
+        } // Close if block    
+    } // Close Update method body    
+    
+    private void FixedUpdate() // Executed on fixed time intervals for deterministic physics processing    
+    { // Open FixedUpdate method body    
+        rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y); // Set horizontal velocity directly while preserving existing vertical velocity    
+    
+        if (jumpRequested) // Process jump request inside fixed physics tick    
+        { // Open if block    
+            rb.AddForce(Vector2.up * jumpForce, ForceMode2D.Impulse); // Apply instant vertical force impulse using mass    
+            jumpRequested = false; // Reset jump flag after executing force    
+        } // Close if block    
+    } // Close FixedUpdate method body    
+    
+    private void OnCollisionEnter2D(Collision2D collision) // Callback triggered when solid collider contacts another solid collider    
+    { // Open OnCollisionEnter2D body    
+        if (collision.gameObject.CompareTag("Ground")) // Verify if contacted object has "Ground" tag assigned    
+        { // Open if block    
+            Debug.Log("Landed on solid ground."); // Print confirmation log message to Unity console    
+        } // Close if block    
+    } // Close OnCollisionEnter2D body    
+    
+    private void OnTriggerEnter2D(Collider2D other) // Callback triggered when collider enters a trigger zone    
+    { // Open OnTriggerEnter2D body    
+        if (other.CompareTag("Collectible")) // Verify if entered trigger has "Collectible" tag assigned    
+        { // Open if block    
+            Destroy(other.gameObject); // Remove collectible object instance from game scene    
+        } // Close if block    
+    } // Close OnTriggerEnter2D body    
+} // Close class body
+Section 4: Movement Nuance & States
+Platformer Nuance & Game Feel:
+Coyote Time: Allows the player to jump a few frames (e.g., 0.1s - 0.15s) after walking off a ledge.
+Jump Queueing (Buffer): Registers jump input pressed slightly before landing (e.g., 0.1s buffer) and executes it upon grounding.
+Variable Jump Height (Short Hops): Cutting upward velocity when the jump button is released early.
+Wall Sliding & Wall Jumping: Detecting wall contact via raycasts or overlap checks to reduce fall speed and allow directional jump forces.
+Ground Detection Methods:
+Physics2D.OverlapCircleAll() / OverlapBox(): Checks a small area around feet.
+Physics2D.Raycast(): Casts rays downward from feet to verify terrain layers and surface normals.
+State Machines with Enums: Cleanly separates state behavior (e.g., Grounded, Airborne, WallSliding, Dashing) to prevent conflicting physics logic.
+Key Code Snippets
+Coyote Time, Jump Buffering, and State Machine Movement:
+using UnityEngine; // Import standard engine namespace    
+    
+public class AdvancedMovementController : MonoBehaviour // Define platformer movement controller class    
+{ // Open class body    
+    public enum MovementState { Grounded, Airborne, WallSliding } // Declare enum for distinct player movement states    
+    
+    [Header("State")] // Inspector heading for state monitoring    
+    [SerializeField] private MovementState currentState; // Private field showing active state in inspector    
+    
+    [Header("Ground Check")] // Inspector heading for ground detection parameters    
+    [SerializeField] private Transform groundCheck; // Position point at player feet for checking ground    
+    [SerializeField] private float groundCheckRadius = 0.2f; // Overlap circle check radius    
+    [SerializeField] private LayerMask groundLayer; // Layer filter mask defining valid terrain layers    
+    
+    [Header("Timers & Nuance")] // Inspector heading for game feel values    
+    [SerializeField] private float coyoteTime = 0.15f; // Grace period duration after walking off ledge    
+    [SerializeField] private float jumpBufferTime = 0.1f; // Buffer window duration for early jump presses    
+    
+    private Rigidbody2D rb; // Reference to attached Rigidbody2D physics component    
+    private float coyoteCounter; // Countdown timer tracking remaining coyote time    
+    private float jumpBufferCounter; // Countdown timer tracking active jump request buffer    
+    private bool isGrounded; // Boolean flag tracking ground overlap state    
+    
+    private void Awake() => rb = GetComponent<Rigidbody2D>(); // Cache Rigidbody2D component reference on awake    
+    
+    private void Update() // Called every frame for checks and state determination    
+    { // Open Update method body    
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer); // Perform circle overlap check at feet against ground layer    
+    
+        if (isGrounded) coyoteCounter = coyoteTime; // Reset coyote timer while grounded    
+        else coyoteCounter -= Time.deltaTime; // Decrement coyote timer when in air    
+    
+        if (Input.GetButtonDown("Jump")) jumpBufferCounter = jumpBufferTime; // Reset jump buffer timer on jump key press    
+        else jumpBufferCounter -= Time.deltaTime; // Decrement buffer timer frame by frame    
+    
+        if (isGrounded) currentState = MovementState.Grounded; // Set active state to Grounded if grounded    
+        else currentState = MovementState.Airborne; // Set active state to Airborne if not grounded    
+    
+        if (jumpBufferCounter > 0f && coyoteCounter > 0f) // Check if both jump buffer and coyote time are valid    
+        { // Open if block    
+            ExecuteJump(); // Trigger jump method    
+        } // Close if block    
+    
+        if (Input.GetButtonUp("Jump") && rb.velocity.y > 0f) // Check if jump key released while ascending    
+        { // Open if block    
+            rb.velocity = new Vector2(rb.velocity.x, rb.velocity.y * 0.5f); // Halve upward velocity for variable short hop    
+        } // Close if block    
+    } // Close Update method body    
+    
+    private void ExecuteJump() // Method handling jump execution physics logic    
+    { // Open ExecuteJump method body    
+        rb.velocity = new Vector2(rb.velocity.x, 12f); // Set upward vertical jump velocity directly    
+        jumpBufferCounter = 0f; // Consume jump buffer request    
+        coyoteCounter = 0f; // Consume coyote time window    
+    } // Close ExecuteJump method body    
+} // Close class body
+Section 5: Input Systems
+Feature
+Old Input System (Legacy)
+New Input System (UnityEngine.InputSystem)
+ 
+Architecture
+Static polling (e.g. Input.GetKey)
+Action-based binding & event-driven architecture
+Rebinding
+Hard to rebind programmatically
+Native support for rebinding & control schemes
+Device Support
+Basic gamepad/keyboard support
+Seamless multi-device, touch, mouse, and switching
+Action Maps
+None
+Separate maps (e.g., Player, UI, Vehicle)
+
+Input Action Behaviors:
+Send Messages / Broadcast Messages: Calls local components matching action names (e.g., OnMove, OnJump).
+Invoke Unity Events: Allows inspector wiring for InputAction.CallbackContext events.
+Direct Polling via Code: Reading InputActionReference or referencing PlayerInput directly.
+Switching Action Maps: playerInput.SwitchCurrentActionMap("UI"); disables combat controls during menus.
+Key Code Snippets
+New Input System Event Callback Integration:
+using UnityEngine; // Import standard engine namespace    
+using UnityEngine.InputSystem; // Import New Input System framework namespace    
+    
+public class NewInputController : MonoBehaviour // Controller class receiving New Input System callbacks    
+{ // Open class body    
+    private Vector2 moveInput; // Stores movement axis value received from input callbacks    
+    private Rigidbody2D rb; // Stores reference to Rigidbody2D physics component    
+    [SerializeField] private float speed = 5f; // Configurable movement speed parameter    
+    
+    private void Awake() => rb = GetComponent<Rigidbody2D>(); // Cache Rigidbody2D reference during initialization    
+    
+    public void OnMove(InputAction.CallbackContext context) // Input callback for Move action wired in Inspector    
+    { // Open OnMove method body    
+        moveInput = context.ReadValue<Vector2>(); // Read active Vector2 input value from controller or keys    
+    } // Close OnMove method body    
+    
+    public void OnJump(InputAction.CallbackContext context) // Input callback for Jump action wired in Inspector    
+    { // Open OnJump method body    
+        if (context.started) // Verify if input event trigger phase just started    
+        { // Open if block    
+            rb.AddForce(Vector2.up * 10f, ForceMode2D.Impulse); // Apply immediate upward vertical impulse force    
+        } // Close if block    
+    } // Close OnJump method body    
+    
+    private void FixedUpdate() // Handle physics-based movement on fixed intervals    
+    { // Open FixedUpdate method body    
+        rb.velocity = new Vector2(moveInput.x * speed, rb.velocity.y); // Apply horizontal move velocity while retaining Y velocity    
+    } // Close FixedUpdate method body    
+} // Close class body
+Section 6: Debugging & Version Control
+Debugging Strategies:
+Debug.Log() / Debug.LogWarning() / Debug.LogError(): Output to Unity Console.
+Debug.DrawLine() / Debug.DrawRay(): Renders visual debugging lines in the Scene View for raycasts and vectors.
+Dummy Visualizer Objects: Using temporary primitive shapes (e.g. sprites, spheres) to visually verify overlap zones or target calculations.
+VS Code Debugger: Attaching VS Code to Unity runtime to set breakpoints, inspect local variables, and step through execution.
+Null Reference Exceptions: Caused by accessing unassigned component/object references. Always check with if (obj != null) or TryGetComponent.
+Version Control (Git & Unity DevOps):
+.gitignore: Critical file that ignores Unity transient build files (e.g. Library/, Temp/, Obj/, Logs/, Builds/, .csproj).
+Asset Serialization: Must be set to Force Text in Project Settings > Editor so scene/prefab files are readable text mergeable via Git.
+Commit Best Practices: Commit small, atomic changes frequently with descriptive commit messages.
+Key Code Snippets
+Debug Raycasting & Visualizer Helpers:
+using UnityEngine; // Import standard engine namespace    
+    
+public class DebuggingHelpers : MonoBehaviour // Script providing visual debugging raycast features    
+{ // Open class body    
+    [SerializeField] private Transform rayOrigin; // Transform reference defining raycast start origin    
+    [SerializeField] private float rayDistance = 3f; // Configurable length of raycast check    
+    
+    private void Update() // Executed once per frame to draw ray and test hits    
+    { // Open Update method body    
+        Vector2 direction = transform.right; // Get local right vector direction of GameObject    
+    
+        RaycastHit2D hit = Physics2D.Raycast(rayOrigin.position, direction, rayDistance); // Perform 2D raycast from origin point    
+    
+        Color debugColor = hit.collider != null ? Color.green : Color.red; // Set line color to Green if hit detected, Red if clear    
+        Debug.DrawRay(rayOrigin.position, direction * rayDistance, debugColor); // Draw visible debug ray line in Scene view    
+    
+        if (hit.collider != null) // Check if raycast intersected with any collider    
+        { // Open if block    
+            Debug.Log($"Hit object: {hit.collider.name} at point {hit.point}"); // Print hit object name and collision point to Console    
+        } // Close if block    
+    } // Close Update method body    
+} // Close class body
+Section 7: Objects & Instantiation
+Prefabs & Prefab Variants:
+Prefab: Reusable asset template stored in the project folder. Changes to the prefab propagate to all scene instances.
+Prefab Variant: Inherits properties from a parent prefab while allowing specific overrides (e.g., standard Enemy vs Elite Enemy variant).
+Object Spawning: GameObject.Instantiate(prefab, position, rotation) clones an asset into world space.
+Singleton Pattern: Ensures only one instance of a manager class exists across scene transitions (e.g., GameManager, AudioManager).
+Scene Querying Performance:
+Object.FindObjectOfType<T>(): Searches the entire loaded scene for a component. Very expensive; never call inside Update(). Cache references in Awake() or Start().
+Key Code Snippets
+Singleton Pattern Implementation:
+using UnityEngine; // Import standard engine namespace    
+    
+public class GameManager : MonoBehaviour // Manager class enforcing global single instance    
+{ // Open class body    
+    public static GameManager Instance { get; private set; } // Global static access property with public getter and private setter    
+    
+    public int Score { get; private set; } // Property holding current game score with restricted setter    
+    
+    private void Awake() // Called immediately when script instance initializes    
+    { // Open Awake method body    
+        if (Instance != null && Instance != this) // Check if an instance already exists elsewhere in scene    
+        { // Open if block    
+            Destroy(gameObject); // Destroy duplicate GameObject instance to maintain singleton constraint    
+            return; // Exit method immediately    
+        } // Close if block    
+    
+        Instance = this; // Assign current instance to static reference    
+        DontDestroyOnLoad(gameObject); // Preserve this GameObject when loading new scene transitions    
+    } // Close Awake method body    
+    
+    public void AddScore(int amount) // Public method for incrementing game score    
+    { // Open AddScore method body    
+        Score += amount; // Add specified amount to total score    
+    } // Close AddScore method body    
+} // Close class body
+Prefab Instantiation:
+using UnityEngine; // Import standard engine namespace    
+    
+public class BulletSpawner : MonoBehaviour // Spawner script for cloning bullet prefabs    
+{ // Open class body    
+    [SerializeField] private GameObject bulletPrefab; // Prefab asset reference assigned via inspector    
+    [SerializeField] private Transform spawnPoint; // Transform marker designating spawn point location    
+    
+    public void Fire() // Method called to instantiate new projectile    
+    { // Open Fire method body    
+        GameObject newBullet = Instantiate(bulletPrefab, spawnPoint.position, spawnPoint.rotation); // Instantiate clone of prefab at designated spawn point position and rotation    
+        Destroy(newBullet, 3.0f); // Schedule automatic destruction of spawned bullet after 3 seconds to clear memory    
+    } // Close Fire method body    
+} // Close class body
+Section 8: Camera Systems
+Tracking Smoothness Techniques:
+Vector3.MoveTowards(): Moves at constant speed; creates linear, rigid tracking.
+Vector3.SmoothDamp(): Uses spring-like damping for natural, smooth camera follow without overshoot. Preferred for game cameras.
+Vector3.Lerp(): Linear interpolation between start and target values over factor t (0 to 1).
+Custom Interpolation Curves:
+Sinerp / Coserp / Smootherstep: Non-linear mathematical curves for smooth acceleration and deceleration.
+AnimationCurve: Inspector-driven custom ease curves evaluated via curve.Evaluate(t).
+Coordinate Systems & Projection:
+Camera.main.WorldToScreenPoint(worldPos): Converts 3D/2D world positions into screen pixel coordinates.
+Camera.main.ScreenToWorldPoint(mousePos): Converts mouse pixel position into world coordinates.
+Orthographic vs. Perspective: 2D games use Orthographic (no depth scale distortion); 3D games use Perspective (FOV).
+Pixel Perfect Camera: Prevents sub-pixel jitter and art distortion in retro 2D pixel-art games.
+Key Code Snippets
+SmoothDamp Camera Follow Script:
+using UnityEngine; // Import standard engine namespace    
+    
+public class CameraSmoothFollow : MonoBehaviour // Script providing spring-damped camera tracking    
+{ // Open class body    
+    [SerializeField] private Transform target; // Target transform reference camera will follow    
+    [SerializeField] private float smoothTime = 0.25f; // Approximate time taken to reach target position    
+    [SerializeField] private Vector3 offset = new Vector3(0f, 0f, -10f); // Camera positional offset relative to target    
+    
+    private Vector3 currentVelocity = Vector3.zero; // Internal velocity vector reference used by SmoothDamp    
+    
+    private void LateUpdate() // Called every frame after all standard Update loops finish    
+    { // Open LateUpdate method body    
+        if (target == null) return; // Exit early if target reference is unassigned    
+    
+        Vector3 targetPosition = target.position + offset; // Calculate ideal camera target position including offset    
+        transform.position = Vector3.SmoothDamp(transform.position, targetPosition, ref currentVelocity, smoothTime); // Smoothly interpolate position using physics damping curve    
+    } // Close LateUpdate method body    
+} // Close class body
+Screen-to-World Mouse Position Conversion:
+using UnityEngine; // Import standard engine namespace    
+    
+public class MouseWorldTarget : MonoBehaviour // Script aligning GameObject position with screen mouse location    
+{ // Open class body    
+    private void Update() // Executed once per frame    
+    { // Open Update method body    
+        Vector3 mouseScreenPos = Input.mousePosition; // Read current mouse position in screen pixel coordinates    
+        mouseScreenPos.z = 10f; // Set Z distance offset from camera lens    
+    
+        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(mouseScreenPos); // Convert screen pixel coordinates into world space coordinates    
+        transform.position = new Vector3(mouseWorldPos.x, mouseWorldPos.y, 0f); // Set GameObject world position matching converted X and Y coordinates    
+    } // Close Update method body    
+} // Close class body
+Section 9: Rotation & Angles
+Quaternions vs. Euler Angles:
+Euler Angles (Vector3): Expressed in degrees (0 - 360). Subject to Gimbal Lock (loss of one degree of freedom when two axes align).
+Quaternions (Quaternion): Mathematical construct representing orientation in 4D space. Prevents Gimbal Lock. Never modify Quaternion.x/y/z/w directly; use helper functions like Quaternion.Euler(), Quaternion.LookRotation(), or Quaternion.AngleAxis().
+2D Z-Axis Rotation: In 2D game space, all rotations occur around the Z-axis (pointing out of the screen).
+Trigonometry & Direction-to-Angle:
+Mathf.Atan2(dir.y, dir.x): Calculates angle in radians from a direction vector.
+Mathf.Rad2Deg: Constant used to convert radians to degrees (degrees = radians * Mathf.Rad2Deg).
+Angle Offset: If standard sprite artwork faces UP (North), subtract 90° from calculated angle.
+Space.Self vs. Space.World:
+Space.Self: Moves/rotates relative to the object's local axes.
+Space.World: Moves/rotates relative to global world axes.
+Key Code Snippets
+Look-At Target via Trigonometry (2D Direction-to-Angle):
+using UnityEngine; // Import standard engine namespace    
+    
+public class AimAtMouse2D : MonoBehaviour // Rotates GameObject to point toward screen mouse location    
+{ // Open class body    
+    [SerializeField] private float rotationOffset = -90f; // Angular offset correction factor for sprites facing UP    
+    
+    private void Update() // Executed once every frame    
+    { // Open Update method body    
+        Vector3 mouseScreenPoint = Input.mousePosition; // Retrieve active mouse screen position in pixels    
+        Vector3 mouseWorldPoint = Camera.main.ScreenToWorldPoint(mouseScreenPoint); // Convert mouse pixel position into world coordinates    
+    
+        Vector2 direction = (mouseWorldPoint - transform.position); // Compute vector pointing from object toward mouse position    
+    
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg; // Calculate angle in degrees using arc-tangent 2    
+    
+        transform.rotation = Quaternion.Euler(0f, 0f, angle + rotationOffset); // Apply rotation around Z-axis formatted as a Quaternion    
+    } // Close Update method body    
+} // Close class body
+Rigidbody2D Rotation Control:
+using UnityEngine; // Import standard engine namespace    
+    
+public class RigidbodyRotation2D : MonoBehaviour // Rotates physics body smoothly inside physics engine    
+{ // Open class body    
+    [SerializeField] private float rotationSpeed = 180f; // Angular rotation speed in degrees per second    
+    private Rigidbody2D rb; // Reference to attached Rigidbody2D component    
+    
+    private void Awake() => rb = GetComponent<Rigidbody2D>(); // Cache Rigidbody2D component reference on awake    
+    
+    public void RotateTowardsAngle(float targetAngle) // Public method rotating physics body toward target angle    
+    { // Open RotateTowardsAngle method body    
+        float newAngle = Mathf.MoveTowardsAngle(rb.rotation, targetAngle, rotationSpeed * Time.fixedDeltaTime); // Smoothly step angle toward target capped by rotation speed    
+        rb.MoveRotation(newAngle); // Apply new angle setting directly to Rigidbody physics body    
+    } // Close RotateTowardsAngle method body    
+} // Close class body
+Section 10: Scenes & Coroutines
+Scenes in Unity: A Scene is a discrete level or game chunk loaded independently. Scenes must be explicitly added to the Scenes in Build list under Build Settings to be included in compiled builds.
+Scene Loading Strategies:
+SceneManager.LoadScene(): Synchronously loads a scene, freezing execution until loading completes.
+SceneManager.LoadSceneAsync(): Asynchronously loads a scene in the background using coroutines to avoid freezing the game.
+LoadSceneMode.Additive: Loads a scene without unloading existing scenes, enabling streaming world chunks.
+Coroutines: Special yieldable methods returning IEnumerator that allow asynchronous execution over multiple frames or delayed time steps without locking the main thread.
+yield return new WaitForSeconds(t): Pauses execution for t real-time seconds.
+yield return new WaitForEndOfFrame(): Pauses execution until rendering completes for the frame.
+yield return null: Pauses execution until the next frame tick.
+Persistent Objects & Lazy Initialization:
+DontDestroyOnLoad(gameObject): Preserves GameObjects across scene changes.
+SceneManager.sceneLoaded: Event callback fired whenever a scene completes loading.
+Lazy Component Getters: Prevents startup frame lag by retrieving component references on-demand rather than running heavy GetComponent calls inside Start().
+Key Code Snippets
+Asynchronous Scene Loading with Coroutine:
+using System.Collections; // Import C# collections namespace for IEnumerator    
+using UnityEngine; // Import core Unity engine namespace    
+using UnityEngine.SceneManagement; // Import scene management utilities namespace    
+    
+public class SceneLoader : MonoBehaviour // Utility class managing asynchronous scene transitions    
+{ // Open class body    
+    public void LoadNextLevel(string sceneName) // Public entry point to initiate background scene loading    
+    { // Open LoadNextLevel body    
+        StartCoroutine(LoadSceneAsyncCoroutine(sceneName)); // Launch asynchronous loading routine    
+    } // Close LoadNextLevel body    
+    
+    private IEnumerator LoadSceneAsyncCoroutine(string sceneName) // Coroutine handling asynchronous scene loading steps    
+    { // Open coroutine body    
+        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName); // Initiate asynchronous scene load request    
+        asyncLoad.allowSceneActivation = false; // Prevent automatic scene transition until loading completes fully    
+    
+        while (asyncLoad.progress < 0.9f) // Poll progress until scene preloading reaches ready threshold (0.9)    
+        { // Open while loop    
+            Debug.Log($"Loading progress: {asyncLoad.progress * 100}%"); // Log normalized loading percentage to console    
+            yield return null; // Wait for the next frame before checking progress again    
+        } // Close while loop    
+    
+        Debug.Log("Loading complete. Activating scene."); // Log completion message to console    
+        asyncLoad.allowSceneActivation = true; // Grant permission to complete scene activation transition    
+    } // Close coroutine body    
+} // Close class body
+Persistent Singleton with Scene Load Callback & Lazy Getter:
+using UnityEngine; // Import standard engine namespace    
+using UnityEngine.SceneManagement; // Import scene management framework namespace    
+    
+public class PersistentGameManager : MonoBehaviour // Singleton manager persisting across scene loads    
+{ // Open class body    
+    public static PersistentGameManager Instance { get; private set; } // Global static access reference property    
+    
+    private BoxCollider2D cachedCollider; // Internal private reference variable for cached collider    
+    
+    private void Awake() // Called when instance is initialized    
+    { // Open Awake body    
+        if (Instance != null && Instance != this) // Check for duplicate instance existing in scene    
+        { // Open if block    
+            Destroy(gameObject); // Destroy duplicate GameObject to maintain singleton pattern    
+            return; // Exit method immediately    
+        } // Close if block    
+    
+        Instance = this; // Assign static reference to current instance    
+        DontDestroyOnLoad(gameObject); // Prevent GameObject from being destroyed across scene loads    
+        SceneManager.sceneLoaded += OnSceneLoaded; // Register delegate callback for scene loaded event    
+    } // Close Awake body    
+    
+    private void OnDestroy() // Called when script instance is destroyed    
+    { // Open OnDestroy body    
+        SceneManager.sceneLoaded -= OnSceneLoaded; // Unsubscribe delegate callback to prevent memory leaks    
+    } // Close OnDestroy body    
+    
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode) // Event callback fired upon scene completion    
+    { // Open OnSceneLoaded body    
+        Debug.Log($"Loaded new scene: {scene.name}"); // Print loaded scene name confirmation to console    
+    } // Close OnSceneLoaded body    
+    
+    public BoxCollider2D GetCollider() // Lazy getter method retrieving collider component on demand    
+    { // Open GetCollider body    
+        if (cachedCollider == null) // Check if collider component has not been cached yet    
+        { // Open if block    
+            cachedCollider = GetComponent<BoxCollider2D>(); // Search and store local BoxCollider2D reference    
+        } // Close if block    
+        return cachedCollider; // Return cached BoxCollider2D reference    
+    } // Close GetCollider body    
+} // Close class body
+Section 11: Animation Systems
+Animation Approaches in Unity:
+Code-Based: Directly changing SpriteRenderer.sprite or transform values via coroutines.
+Animator & State Machines: Visual node graph managing state transitions, blend trees, and parameters.
+Direct Scripting (Animator.Play() / CrossFadeInFixedTime()): Bypasses state transitions to trigger clips directly in code with programmatic blending.
+Keyframes & Curves: Keyframes record property values at specific timeline points. Tangents (Free, Flat, Linear, Constant) define mathematical interpolation curves between keyframes.
+Animator Parameters & Blend Trees:
+Parameters: Variables (Float, Int, Bool, Trigger) controlling transition conditions.
+Blend Trees: Smoothly blend multiple animations based on 1D or 2D motion parameters (e.g., directional movement thresholds).
+Advanced Animation Techniques:
+Apply Root Motion: Retains world position transformations calculated directly within animation clips.
+LateUpdate() Override: Overrides animation-driven properties on the same frame.
+Y-Sort Depth Trick: Dynamically sets sortingOrder = Mathf.FloorToInt(-transform.position.y * 10) to simulate top-down 2D visual depth.
+Animation Override Controllers: Swaps animation clips across characters while sharing the same base Animator state structure.
+Timelines: Sequences complex multi-object cutscenes using the PlayableDirector component.
+Key Code Snippets
+Animator Parameter Control & Direct Play Execution:
+using System.Collections; // Import standard C# collections for coroutines    
+using UnityEngine; // Import standard engine namespace    
+    
+[RequireComponent(typeof(Animator))] // Guarantee presence of required Animator component    
+public class PlayerAnimationController : MonoBehaviour // Script controlling player animation parameters and states    
+{ // Open class body    
+    private Animator animator; // Cached reference to attached Animator component    
+    private Rigidbody2D rb; // Cached reference to attached Rigidbody2D component    
+    
+    private void Awake() // Initializing component references    
+    { // Open Awake body    
+        animator = GetComponent<Animator>(); // Retrieve and store Animator component reference    
+        rb = GetComponent<Rigidbody2D>(); // Retrieve and store Rigidbody2D component reference    
+    } // Close Awake body    
+    
+    private void Update() // Processing animation parameters every frame    
+    { // Open Update body    
+        animator.SetFloat("ySpeed", rb.velocity.y); // Sync vertical velocity float parameter with physics body    
+        animator.SetBool("isGrounded", Mathf.Abs(rb.velocity.y) < 0.01f); // Set grounded boolean parameter based on vertical velocity threshold    
+    
+        if (Input.GetKeyDown(KeyCode.Space)) // Check for jump trigger input key press    
+        { // Open if block    
+            animator.SetTrigger("jump"); // Activate jump trigger parameter in Animator state machine    
+        } // Close if block    
+    } // Close Update body    
+    
+    public void TriggerSpecialAttack() // Public method demonstrating direct animation state playback    
+    { // Open TriggerSpecialAttack body    
+        StartCoroutine(PlayAttackRoutine()); // Launch special attack playback coroutine    
+    } // Close TriggerSpecialAttack body    
+    
+    private IEnumerator PlayAttackRoutine() // Coroutine managing direct clip playback sequence    
+    { // Open PlayAttackRoutine body    
+        animator.CrossFadeInFixedTime("SpecialAttack", 0.1f); // Smoothly fade into SpecialAttack state over 0.1 seconds    
+        yield return new WaitForSeconds(animator.GetCurrentAnimatorStateInfo(0).length); // Wait for active animation clip duration to complete    
+        animator.CrossFadeInFixedTime("Idle", 0.15f); // Smoothly transition back to Idle state    
+    } // Close PlayAttackRoutine body    
+} // Close class body
+Dynamic 2D Y-Sort Order Depth Calculation:
+using UnityEngine; // Import standard engine namespace    
+    
+[RequireComponent(typeof(SpriteRenderer))] // Guarantee presence of required SpriteRenderer component    
+public class YSortDepth : MonoBehaviour // Script updating sprite sorting order dynamically based on Y position    
+{ // Open class body    
+    private SpriteRenderer spriteRenderer; // Private reference variable for local SpriteRenderer component    
+    
+    private void Awake() // Called on component initialization    
+    { // Open Awake body    
+        spriteRenderer = GetComponent<SpriteRenderer>(); // Retrieve and store SpriteRenderer reference    
+    } // Close Awake body    
+    
+    private void LateUpdate() // Calculated inside LateUpdate to execute after movement and animation updates    
+    { // Open LateUpdate body    
+        spriteRenderer.sortingOrder = Mathf.FloorToInt(-transform.position.y * 10f); // Set sorting order dynamically based on inverted Y world position    
+    } // Close LateUpdate body    
+} // Close class body
+Section 12: User Interface (UI)
+UI Architecture in Unity: UI elements reside inside a Canvas component. Non-diegetic UI draws over game content using special RectTransform components.
+Canvas Render Modes:
+Screen Space - Overlay: Renders on top of the entire screen space regardless of camera.
+Screen Space - Camera: Anchored to a specific camera frustum.
+World Space: Behaves as a physical 2D/3D object inside the world scene.
+RectTransform & Anchoring: Uses normalized anchor coordinates (0.0 to 1.0) relative to canvas dimensions.
+Equal Min/Max Anchors: Position set as exact offsets (anchoredPosition).
+Different Min/Max Anchors: Position set as edge margins (offsetMin bottom-left, offsetMax top-right).
+Essential UI Components & Tools:
+Image: Displays sprites; supports Sliced borders and Filled modes (ideal for health bars via fillAmount = health / maxHealth).
+TextMeshPro - Text (UI): High-performance crisp vector text rendering.
+CanvasGroup: Fades, disables, or hides clusters of UI elements simultaneously using the alpha property.
+Layout Groups: Automatically arranges children into vertical, horizontal, or grid configurations.
+Controller Navigation: Uses Unity's EventSystem; requires assigning firstSelected to support gamepads without mouse dependency.
+Game Pausing: Set Time.timeScale = 0f to pause physics and time-scaled routines while retaining UI responsiveness.
+Key Code Snippets
+Health Bar Image Fill & Pause Menu Controller:
+using UnityEngine; // Import core engine framework namespace    
+using UnityEngine.EventSystems; // Import UI event management framework namespace    
+using UnityEngine.UI; // Import legacy and standard UI elements namespace    
+    
+public class UIController : MonoBehaviour // Controller script handling HUD health updates and pause menu logic    
+{ // Open class body    
+    [Header("HUD")] // Inspector heading for HUD elements    
+    [SerializeField] private Image healthBarFill; // Reference to UI Image component set to Filled mode    
+    
+    [Header("Pause Menu")] // Inspector heading for menu management    
+    [SerializeField] private GameObject pauseMenuPanel; // Container panel holding pause UI components    
+    [SerializeField] private GameObject firstSelectedButton; // Primary UI button selected on gamepad navigation    
+    
+    private bool isPaused; // Flag tracking current game pause state    
+    
+    public void UpdateHealth(float currentHealth, float maxHealth) // Public method updating health bar fill fraction    
+    { // Open UpdateHealth body    
+        healthBarFill.fillAmount = Mathf.Clamp01(currentHealth / maxHealth); // Calculate normalized fill fraction between 0 and 1    
+    } // Close UpdateHealth body    
+    
+    private void Update() // Polling pause input key every frame    
+    { // Open Update body    
+        if (Input.GetKeyDown(KeyCode.Escape)) // Check if pause toggle key was pressed    
+        { // Open if block    
+            TogglePause(); // Execute pause state toggle method    
+        } // Close if block    
+    } // Close Update body    
+    
+    public void TogglePause() // Method handling game pause time scale and UI toggles    
+    { // Open TogglePause body    
+        isPaused = !isPaused; // Invert pause boolean state    
+        Time.timeScale = isPaused ? 0f : 1f; // Freeze time scale if paused, restore to 1 if unpaused    
+        pauseMenuPanel.SetActive(isPaused); // Toggle visibility state of pause menu panel container    
+    
+        if (isPaused) // Handle gamepad navigation selection upon pausing    
+        { // Open if block    
+            EventSystem.current.SetSelectedGameObject(firstSelectedButton); // Force active EventSystem selection to designated default button    
+        } // Close if block    
+    } // Close TogglePause body    
+} // Close class body
+Section 13: 3D Scripting & Physics
+3D Coordinate System:
+X-axis: Right / Left
+Y-axis: Up / Down
+Z-axis: Forward / Back
+Global vs. Local Direction Vectors:
+Vector3.forward (0,0,1): World space forward direction regardless of object orientation.
+transform.forward: Local forward direction vector relative to the object's active orientation.
+First-Person Camera & Movement Architecture:
+Mouse Look: Horizontal mouse delta rotates the player body on Y-axis (transform.rotation); vertical mouse delta rotates the camera lens on X-axis (camera.rotation).
+Cursor Locking: Enforced using Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false;.
+3D Colliders & Joints:
+Colliders: Standard 3D colliders (BoxCollider, SphereCollider, CapsuleCollider) replaced 2D variants.
+MeshCollider: Matches complex visual mesh geometry; must check Convex to enable dynamic physics collision checks.
+Joints (e.g., HingeJoint): Constrains two Rigidbody objects together to simulate doors, pendulums, and wheels.
+Character Controller: Alternative non-Rigidbody component handling kinematic stairs and slope traversal without physics forces.
+Key Code Snippets
+First-Person Mouse Look Controller:
+using UnityEngine; // Import standard engine namespace    
+    
+public class FirstPersonLook : MonoBehaviour // Mouse look controller script for first-person perspective    
+{ // Open class body    
+    [SerializeField] private float sensitivity = 2f; // Mouse look sensitivity multiplier factor    
+    [SerializeField] private Transform cameraTransform; // Transform reference to internal child camera    
+    
+    private float xRotation = 0f; // Tracked pitch angle calculation clamped to prevent flip    
+    
+    private void Start() // Lock and hide cursor on initialization    
+    { // Open Start body    
+        Cursor.lockState = CursorLockMode.Locked; // Lock cursor movement to screen center point    
+        Cursor.visible = false; // Hide cursor rendering visual pointer    
+    } // Close Start body    
+    
+    private void Update() // Read mouse movement inputs every frame    
+    { // Open Update method body    
+        float mouseX = Input.GetAxis("Mouse X") * sensitivity; // Read horizontal mouse movement input delta    
+        float mouseY = Input.GetAxis("Mouse Y") * sensitivity; // Read vertical mouse movement input delta    
+    
+        xRotation -= mouseY; // Accumulate vertical rotation input delta    
+        xRotation = Mathf.Clamp(xRotation, -90f, 90f); // Clamp vertical camera angle between looking straight down and straight up    
+    
+        cameraTransform.localRotation = Quaternion.Euler(xRotation, 0f, 0f); // Apply clamped pitch rotation to child camera transform    
+        transform.Rotate(Vector3.up * mouseX); // Apply horizontal yaw rotation directly to root player body    
+    } // Close Update method body    
+} // Close class body
+3D Directional Rigidbody Movement:
+using UnityEngine; // Import standard engine namespace    
+    
+[RequireComponent(typeof(Rigidbody))] // Guarantee presence of standard 3D Rigidbody component    
+public class FirstPersonMovement : MonoBehaviour // Script managing transform-relative 3D movement physics    
+{ // Open class body    
+    [SerializeField] private float moveSpeed = 8f; // Configurable movement speed parameter    
+    private Rigidbody rb; // Private cached reference to 3D Rigidbody    
+    
+    private void Awake() // Initializing component references    
+    { // Open Awake body    
+        rb = GetComponent<Rigidbody>(); // Retrieve and cache standard 3D Rigidbody reference    
+    } // Close Awake body    
+    
+    private void FixedUpdate() // Handle physics movement on fixed intervals    
+    { // Open FixedUpdate body    
+        float moveX = Input.GetAxisRaw("Horizontal"); // Poll raw horizontal movement input axis (-1, 0, 1)    
+        float moveZ = Input.GetAxisRaw("Vertical"); // Poll raw vertical movement input axis (-1, 0, 1)    
+    
+        Vector3 moveDirection = (transform.forward * moveZ + transform.right * moveX).normalized; // Construct unit movement vector relative to player's active facing direction    
+        Vector3 targetVelocity = moveDirection * moveSpeed; // Calculate target directional velocity vector    
+    
+        rb.velocity = new Vector3(targetVelocity.x, rb.velocity.y, targetVelocity.z); // Apply horizontal velocity components while preserving vertical gravity velocity    
+    } // Close FixedUpdate body    
+} // Close class body
+Section 14: 3D Camera & Rig Animation
+3rd Person Camera Implementation:
+Calculated by positioning the camera backward from the target along its look vector (transform.position - camera.transform.forward * distance).
+Vector rotation can be executed by multiplying a Quaternion.Euler(xRotation, yRotation, 0) by a directional vector (e.g. new Vector3(0, 0, distance)).
+Preventing geometry clipping: Use Physics.Raycast(transform.position, -camera.forward, out RaycastHit hitInfo, distance, layerMask) to constrain camera distance to hitInfo.distance.
+3D Rig Animations & Blending:
+Unlike 2D frame swapping, 3D animations transform bone hierarchies over time, allowing procedural interpolation and lerping between states.
+Blend Trees blend multiple motion clips (e.g., Idle, Walk, Run) continuously using 1D/2D float parameters.
+Animator Layers & Weights: Separate skeletal hierarchies across layers (e.g., dedicated upper body/arm layer) with custom weight values to override base locomotion animations.
+Key Code Snippets
+3rd Person Camera with Raycast Occlusion/Collision Prevention:
+using UnityEngine; // Import standard engine namespace    
+    
+public class ThirdPersonCamera : MonoBehaviour // Controller managing orbit 3rd-person camera positioning    
+{ // Open class body    
+    [SerializeField] private Transform target; // Target transform reference (player)    
+    [SerializeField] private float cameraDistance = 15f; // Ideal follow distance    
+    [SerializeField] private float lookSpeed = 120f; // Look sensitivity multiplier    
+    [SerializeField] private LayerMask collisionLayers; // Layers that block camera line of sight    
+    
+    private float xRotation; // Pitch accumulation angle    
+    private float yRotation; // Yaw accumulation angle    
+    
+    private void LateUpdate() // Position camera in LateUpdate to prevent jitter    
+    { // Open LateUpdate body    
+        if (target == null) return; // Guard clause for missing target    
+    
+        float mouseX = Input.GetAxis("Mouse X") * lookSpeed * Time.deltaTime; // Read horizontal delta    
+        float mouseY = Input.GetAxis("Mouse Y") * lookSpeed * Time.deltaTime; // Read vertical delta    
+    
+        yRotation += mouseX; // Accumulate horizontal orbit angle    
+        xRotation -= mouseY; // Accumulate vertical orbit angle    
+        xRotation = Mathf.Clamp(xRotation, -40f, 80f); // Clamp pitch range    
+    
+        Quaternion cameraRotation = Quaternion.Euler(xRotation, yRotation, 0f); // Calculate target orientation Quaternion    
+        float activeDistance = cameraDistance; // Start with default distance    
+    
+        // Raycast backward from target to check for wall obstacles    
+        if (Physics.Raycast(target.position, -(cameraRotation * Vector3.forward), out RaycastHit hitInfo, cameraDistance, collisionLayers))    
+        { // Open if block    
+            activeDistance = hitInfo.distance; // Constrain camera distance to obstacle hit distance    
+        } // Close if block    
+    
+        Vector3 targetPosition = target.position - (cameraRotation * Vector3.forward * activeDistance); // Compute final position vector    
+        transform.rotation = cameraRotation; // Set camera orientation    
+        transform.position = targetPosition; // Set camera position    
+    } // Close LateUpdate body    
+} // Close class body
+Section 15: Designing Systems & Project Architecture
+Core Tool Selection Mapping:
+Shared Behavior: Inheritance / Base Classes
+Spatial Translation/Scaling: Vectors
+Physical Dynamics: Rigidbodies
+Runtime Instantiation: Prefabs & Instantiate() with explicit cleanup (Destroy())
+Smooth Position Sweeps: Vector3.Lerp() / Vector3.SmoothDamp()
+Rotations: Quaternions, Euler Angles, Mathf.Atan2()
+Time Delay/Pacing: Coroutines
+Animation State Control: Animator Parameters, Blend Trees, State Machine Behaviours
+Project Structure Requirements:
+Decoupled modular architecture using event triggers (UnityEvent / UnityAction) to reduce hard dependencies across managers.
+Input map switching and dynamic control remapping for cross-platform compliance.
+Section 16: Code Organization & Architecture
+Core Principles of Code Organization:
+Inheritance: Eliminate duplicated code by sharing common logic in abstract or base parent classes.
+Robustness: Design components to handle missing or invalid inputs gracefully without breaking runtime loops.
+Decoupling: Ensure components operate independently without hard dependencies on external scene objects.
+Encapsulation: Limit visibility by keeping methods/variables private unless external access is required.
+Readability: Use clear, descriptive class, variable, and method names in PascalCase and camelCase.
+Method Stacking & Optional Parameters:
+Stack overloaded methods by redirecting callers with fewer arguments to the signature containing the most parameters.
+Use optional parameter defaults (e.g., float amount = 1f) placed strictly at the end of parameter signatures.
+Data Transfer Objects (DTOs):
+Encapsulate complex multi-variable parameters into lightweight container classes (e.g., HealAction) to simplify method signatures and maintain long-term flexibility.
+Unity C# Attributes Reference:
+[SerializeField]: Exposes private fields to the Inspector while keeping access restricted.
+[HideInInspector]: Hides public variables from the Inspector UI.
+[Header("Name")] & [Space]: Formats and groups properties visually in the Inspector.
+[Range(min, max)]: Creates a slider control for numeric fields in the Inspector.
+[Tooltip("Text")]: Displays hover help descriptions over fields in the Inspector.
+[TextArea(minLines, maxLines)]: Provides a multi-line text input field in the Inspector.
+[Serializable]: Enables custom sub-classes or structs to render inside the Inspector.
+[RequireComponent(typeof(Component))]: Automatically attaches required dependencies to the GameObject.
+[SelectionBase]: Forces selection of the root GameObject in Scene View when clicking child meshes.
+[ContextMenu("Label", "MethodName")]: Adds custom context menu options on components in the Inspector.
+Key Code Snippets
+Polymorphism, Virtual Methods, and Base Overriding:
+using UnityEngine; // Import standard engine namespace    
+  
+public class Vehicle // Base parent class    
+{ // Open class body    
+    public float topSpeed = 50f; // Shared vehicle field    
+  
+    public virtual void ApplyBrakes() // Virtual method marked for child override    
+    { // Open method body    
+        Debug.Log("Vehicle applying standard brakes."); // Execute base braking logic    
+    } // Close method body    
+} // Close class body    
+  
+public class Train : Vehicle // Child class inheriting from Vehicle    
+{ // Open class body    
+    public int trainCars = 5; // Specific child property    
+  
+    public override void ApplyBrakes() // Override base method implementation    
+    { // Open method body    
+        base.ApplyBrakes(); // Call base parent class braking logic first    
+        Debug.Log($"Train stopping all {trainCars} attached cars."); // Execute additional train-specific logic    
+    } // Close method body    
+} // Close class body
+Data Transfer Objects (DTO) Implementation:
+using UnityEngine; // Import standard engine namespace    
+  
+public class HealAction // DTO container encapsulating heal data    
+{ // Open class body    
+    public float healAmount; // Scalar amount to heal    
+    public bool stopPoison; // Flag to cleanse poison    
+    public bool stopBurn; // Flag to cleanse burn    
+    public float regenPerSecond; // Rate for continuous regeneration    
+} // Close class body    
+  
+public class HealthComponent : MonoBehaviour // Component accepting DTO input    
+{ // Open class body    
+    public float health = 100f; // Current health value    
+  
+    public void ApplyHeal(HealAction action) // Method accepting DTO instance    
+    { // Open ApplyHeal body    
+        if (action == null) return; // Guard clause against null DTO    
+  
+        health += action.healAmount; // Apply heal scalar value    
+        if (action.stopPoison) Debug.Log("Poison status cleared."); // Process status effect flag    
+    } // Close ApplyHeal body    
+} // Close class body
+Section 17: Audio Systems
+Core Components:
+Audio Source: Plays clips in the 3D/2D world. Properties include clip, volume, pitch, loop, playOnAwake, and spatialBlend (0 for 2D, 1 for 3D).
+Audio Listener: Acts as the virtual ear in the scene (typically attached to the main Camera). Exactly one listener must be active per scene.
+Audio Playback Methods:
+audioSource.PlayOneShot(clip): Plays a sound effect without cutting off currently playing clips on the same source. Ideal for SFX (e.g., jump, attack).
+audioSource.Play(), Stop(), Pause(): Manages state for continuous audio (e.g., background music, ambient loops).
+audioSource.PlayScheduled(double time): Precise DSP-driven execution for seamless music transitions, intros, and beat timing.
+BPM & Music Sequencing:
+Calculate time offsets using Beats Per Minute (BPM): offset = (60.0f / bpm) * beatCount.
+Access current clip time with audioSource.time to synchronize gameplay elements or rhythm mechanics.
+Audio Mixers & Snapshots:
+Group audio channels hierarchically (e.g., Master -> Music / SFX) to control volumes or apply filters (Lowpass, Highpass, Reverb).
+Expose parameters to scripts to adjust values dynamically: mixer.SetFloat("ParamName", dBValue).
+Use Audio Mixer Snapshots to transition audio states smoothly (e.g., entering underwater, pausing, entering a cave): snapshot.TransitionTo(transitionTime).
+Import Best Practices: Avoid using .mp3 files for looping tracks due to header decoding gaps causing ~0.25s playback delays. Convert audio to .ogg format for seamless looping.
+Key Code Snippets
+Dynamic Audio Crossfading Controller:
+using UnityEngine; // Import standard engine namespace    
+  
+public class AudioCrossfader : MonoBehaviour // Script managing dual-source music crossfading    
+{ // Open class body    
+    [SerializeField] private AudioSource sourceA; // Primary AudioSource component reference    
+    [SerializeField] private AudioSource sourceB; // Secondary AudioSource component reference    
+    [SerializeField] private float fadeSpeed = 1f; // Speed multiplier for crossfade effect    
+  
+    private AudioSource currentSource; // Internal reference tracking active music source    
+    private AudioSource targetSource; // Internal reference tracking incoming music source    
+    private bool isCrossfading; // Flag indicating active fade transition    
+  
+    private void Awake() // Initialize active references    
+    { // Open Awake body    
+        currentSource = sourceA; // Default primary source    
+        targetSource = sourceB; // Default secondary source    
+    } // Close Awake body    
+  
+    private void Update() // Smoothly interpolate source volumes every frame    
+    { // Open Update body    
+        if (!isCrossfading) return; // Exit if no active transition    
+  
+        currentSource.volume -= Time.deltaTime * fadeSpeed; // Fade out outgoing track    
+        targetSource.volume += Time.deltaTime * fadeSpeed; // Fade in incoming track    
+  
+        if (targetSource.volume >= 1f) // Check completion condition    
+        { // Open if block    
+            currentSource.volume = 0f; // Cap outgoing volume    
+            currentSource.Stop(); // Stop outgoing source    
+            targetSource.volume = 1f; // Cap incoming volume    
+            isCrossfading = false; // Reset fade state    
+  
+            AudioSource temp = currentSource; // Swap source pointers    
+            currentSource = targetSource; // Set new active source    
+            targetSource = temp; // Set new target source    
+        } // Close if block    
+    } // Close Update body    
+  
+    public void CrossfadeTo(AudioClip newClip) // Public method triggering crossfade to new music clip    
+    { // Open CrossfadeTo body    
+        targetSource.clip = newClip; // Assign new clip to incoming source    
+        targetSource.volume = 0f; // Reset incoming volume to zero    
+        targetSource.Play(); // Begin playing incoming clip    
+        isCrossfading = true; // Set active crossfade flag    
+    } // Close CrossfadeTo body    
+} // Close class body
+Audio Mixer Parameter & Snapshot Controller:
+using UnityEngine; // Import standard engine namespace    
+using UnityEngine.Audio; // Import Audio Mixer framework namespace    
+  
+public class AudioManager : MonoBehaviour // Script updating AudioMixer parameters and snapshots    
+{ // Open class body    
+    [SerializeField] private AudioMixer mainMixer; // Reference to main AudioMixer asset    
+    [SerializeField] private AudioMixerSnapshot normalSnapshot; // Reference to Normal environmental snapshot    
+    [SerializeField] private AudioMixerSnapshot caveSnapshot; // Reference to Cave environmental snapshot    
+  
+    public void SetMusicVolume(float linearVolume) // Sets exposed volume parameter using dB logarithmic conversion    
+    { // Open SetMusicVolume body    
+        float dbVolume = Mathf.Log10(Mathf.Clamp(linearVolume, 0.0001f, 1f)) * 20f; // Convert 0-1 range to logarithmic decibels    
+        mainMixer.SetFloat("playerMusicVolume", dbVolume); // Update exposed parameter in AudioMixer    
+    } // Close SetMusicVolume body    
+  
+    public void TransitionToCave(float transitionDuration) // Blends mixer properties to Cave snapshot    
+    { // Open TransitionToCave body    
+        caveSnapshot.TransitionTo(transitionDuration); // Smoothly blend all snapshot settings over duration    
+    } // Close TransitionToCave body    
+  
+    public void TransitionToNormal(float transitionDuration) // Blends mixer properties to Normal snapshot    
+    { // Open TransitionToNormal body    
+        normalSnapshot.TransitionTo(transitionDuration); // Smoothly blend back to normal snapshot    
+    } // Close TransitionToNormal body    
+} // Close class body
+Section 18: Events & Scriptable Objects
+UnityEvents & Event-Driven Architecture:
+Events allow methods to be triggered automatically when specific conditions occur, avoiding redundant checks inside Update() loops.
+Methods attached to events are referred to as Listeners (added via AddListener and removed via RemoveListener).
+Events are executed by calling Invoke() and can pass custom parameters (e.g., UnityEvent<Vector3>) to pass data directly to listeners.
+Public UnityEvent fields are visible in the Inspector, enabling designers to wire events to GameObject methods visually without writing additional code.
+ScriptableObjects Overview:
+Custom data containers inheriting from ScriptableObject that live in the Assets folder rather than scenes, persisting independently of scene loading.
+Lightweight alternative to Singletons for managing global data, stats, inventory items, loot tables, AI states, and shared settings.
+Decorated with the [CreateAssetMenu] attribute to allow asset creation directly from the Unity project menu.
+Values modified in the Unity Editor persist during testing, but reset automatically in compiled project builds.
+Advanced Uses of ScriptableObjects:
+Methods in ScriptableObjects: Can contain methods to manipulate internal data (e.g., shuffling lists or adding cards).
+Extendable Enums: Replace rigid C# enums to group custom logic, properties, and status conditions without requiring large switch or if-else blocks across multiple scripts.
+Polymorphism & Inheritance: ScriptableObjects can inherit from base ScriptableObject classes and override virtual methods to create extensible gameplay actions (e.g., custom status effects like OnFire).
+Memory & Performance Efficiency: Significantly more lightweight than Prefabs because they store data without Transform data or GameObject hierarchy overhead, requiring no instantiation.
+Key Code Snippets
+UnityEvent Manager & Listener Integration:
+using UnityEngine; // Import standard engine namespace    
+using UnityEngine.Events; // Import Unity Events framework namespace    
+    
+public class GameManagerEvents // Static container class for global game events    
+{ // Open class body    
+    public static UnityEvent<Vector3> snakeDetectedEvent = new UnityEvent<Vector3>(); // Declare global static event passing Vector3 position parameter    
+} // Close class body    
+    
+public class Guard : MonoBehaviour // Listener class reacting to global events    
+{ // Open class body    
+    private void Start() // Subscribing to event on initialization    
+    { // Open Start body    
+        GameManagerEvents.snakeDetectedEvent.AddListener(ChaseAfterSnake); // Register ChaseAfterSnake method as an event listener    
+    } // Close Start body    
+    
+    private void OnDisable() // Unsubscribing when disabled to prevent missing reference errors    
+    { // Open OnDisable body    
+        GameManagerEvents.snakeDetectedEvent.RemoveListener(ChaseAfterSnake); // Remove event listener subscription    
+    } // Close OnDisable body    
+    
+    public void ChaseAfterSnake(Vector3 lastSeenPosition) // Callback method matching UnityEvent parameter signature    
+    { // Open ChaseAfterSnake body    
+        transform.position = Vector3.MoveTowards(transform.position, lastSeenPosition, Time.deltaTime); // Move toward last seen position vector    
+    } // Close ChaseAfterSnake body    
+    
+    private void OnCollisionEnter2D(Collision2D other) // Physics collision callback invoking the event    
+    { // Open OnCollisionEnter2D body    
+        if (other.gameObject.CompareTag("Snake")) // Check if collided object is tagged as Snake    
+        { // Open if block    
+            GameManagerEvents.snakeDetectedEvent.Invoke(other.transform.position); // Invoke event passing snake position to all listeners    
+        } // Close if block    
+    } // Close OnCollisionEnter2D body    
+} // Close class body
+ScriptableObject Data Asset & Method Declaration:
+using UnityEngine; // Import standard engine namespace    
+    
+[CreateAssetMenu(fileName = "New Card", menuName = "Card")] // Enable creation from Assets/Create menu    
+public class Card : ScriptableObject // ScriptableObject defining card properties    
+{ // Open class body    
+    public string cardName; // Name of the card asset    
+    public string description; // Text description of card action    
+    public Sprite artwork; // Sprite reference for visual representation    
+    public int manaCost; // Resource cost to play card    
+    public int attack; // Base attack power metric    
+    public int health; // Base health/defense metric    
+} // Close class body
+Extensible ScriptableObject Status System (Extendable Enum Pattern):
+using UnityEngine; // Import standard engine namespace    
+    
+public class StatusCondition : ScriptableObject // Abstract base ScriptableObject for status conditions    
+{ // Open class body    
+    public virtual void PerformCustomEffect(PlayerCharacter player) // Virtual method for status effect execution    
+    { // Open method body    
+        // Base effect implementation (empty or default)    
+    } // Close method body    
+} // Close class body    
+    
+[CreateAssetMenu(fileName = "StatusOnFire", menuName = "Status/On Fire")] // Create menu entry for OnFire status asset    
+public class OnFireStatus : StatusCondition // Polymorphic subclass extending base StatusCondition    
+{ // Open class body    
+    public float damagePerTurn = 1f; // Scalable damage per turn    
+    
+    public override void PerformCustomEffect(PlayerCharacter player) // Override base status execution    
+    { // Open PerformCustomEffect body    
+        player.TakeDamage(damagePerTurn); // Apply fire damage scalar to player target    
+        player.DestroyFlammableEquipment(); // Execute custom fire status logic on target    
+    } // Close PerformCustomEffect body    
+} // Close class body    
+    
+public class PlayerCharacter : MonoBehaviour // Player component executing status condition effects    
+{ // Open class body    
+    public StatusCondition currentStatus; // Active status condition reference    
+    
+    public void ProcessTurn() // Called to resolve turn status effects    
+    { // Open ProcessTurn body    
+        if (currentStatus != null) // Guard clause checking for active status condition    
+        { // Open if block    
+            currentStatus.PerformCustomEffect(this); // Polyscriptable execution delegating logic to asset    
+        } // Close if block    
+    } // Close ProcessTurn body    
+    
+    public void TakeDamage(float amount) // Helper method applying damage to player    
+    { // Open TakeDamage body    
+        Debug.Log($"Player took {amount} status damage."); // Output damage log to Unity console    
+    } // Close TakeDamage body    
+    
+    public void DestroyFlammableEquipment() // Helper method handling status secondary effect    
+    { // Open DestroyFlammableEquipment body    
+        Debug.Log("Flammable equipment burned away."); // Output burn log to Unity console    
+    } // Close DestroyFlammableEquipment body    
+} // Close class body
+Section 19: Dialog Systems
+Core Architecture & Decoupling:
+NPCs and Dialog logic should remain decoupled so characters are not locked to specific lines and can act as driven puppets within the narrative framework.
+Dialog containers must maintain high flexibility to handle additional metadata over time, such as portraits/mugshots, character names, dynamic expressions, animations, or quest integration.
+Interaction Triggers:
+Create an abstract base class or interface named Interactive with an OnInteract() method.
+Use Physics2D.OverlapCircleAll() to detect nearby interactive objects when the player presses the interact key, or Physics2D.Raycast() if directional facing is required.
+String Manipulation & Templating:
+Strings function as arrays of characters that can be concatenated using + or appended with +=.
+Use string.Replace("%player%", playerName) to replace dynamic placeholders inside Inspector-defined dialog fields.
+Dialog Managers & Queues:
+Store multi-line conversations inside a Queue<DialogItem> or array inside a DialogScene object.
+Disable player controls when starting a scene, display the current line via dialogQueue.Dequeue(), and re-enable input once the queue is empty.
+Encapsulate text lines alongside assets (e.g., mugshot sprites, subject GameObjects) within a custom DialogItem class or ScriptableObject asset container.
+Branching Dialog & UI Formatting:
+Implement branching by storing an array of DialogOption items inside a BranchingDialogItem class, passing selected choices back to the manager via callbacks.
+Animate typewriter text output using an IEnumerator coroutine iterating over single characters with yield return new WaitForSeconds(...).
+Apply styling via rich text tags (e.g., <b>, <i>, <color=red>) inside TextMeshPro components, making sure to parse entire HTML tags as single units during typewriter enumeration.
+External writing tools like Ink or Twine can handle complex branching narrative graphs and export text files parsed directly by Unity scripts.
+Key Code Snippets
+Interactive Interface & OverlapCircle Trigger:
+using UnityEngine; // Import standard engine namespace    
+    
+public interface IInteractive // Interface defining contract for interactive objects    
+{ // Open interface body    
+    void OnInteract(); // Method signature called when interacted with    
+} // Close interface body    
+    
+public class PlayerInteraction : MonoBehaviour // Script handling player interaction detection    
+{ // Open class body    
+    [SerializeField] private float interactRange = 1.5f; // Radius range check for interactive objects    
+    
+    private void Update() // Poll input every frame    
+    { // Open Update body    
+        if (Input.GetButtonDown("Interact")) // Check if interaction key was pressed    
+        { // Open if block    
+            CheckInteractions(); // Execute interaction overlap check    
+        } // Close if block    
+    } // Close Update body    
+    
+    private void CheckInteractions() // Scans surroundings for interactive components    
+    { // Open CheckInteractions body    
+        Collider2D[] hits = Physics2D.OverlapCircleAll(transform.position, interactRange); // Perform circle overlap check at player position    
+        foreach (Collider2D hit in hits) // Loop through all detected colliders    
+        { // Open foreach body    
+            IInteractive interactable = hit.GetComponent<IInteractive>(); // Try retrieving interactive interface implementation    
+            if (interactable != null) // Guard clause checking for valid interactable target    
+            { // Open if block    
+                interactable.OnInteract(); // Call interaction logic    
+                break; // Exit loop after triggering first interactable    
+            } // Close if block    
+        } // Close foreach body    
+    } // Close CheckInteractions body    
+} // Close class body
+Dialog Queue & Manager Processing:
+using System.Collections; // Import collections namespace for Queue    
+using System.Collections.Generic; // Import generic collections namespace    
+using TMPro; // Import TextMeshPro namespace    
+using UnityEngine; // Import core engine namespace    
+    
+[System.Serializable] // Expose class parameters inside Inspector    
+public class DialogItem // Class encapsulating line data and metadata    
+{ // Open class body    
+    public string dialogLine; // Text content of the dialog line    
+    public Sprite mugshot; // Character portrait sprite reference    
+} // Close class body    
+    
+public class DialogManager : MonoBehaviour // Manager executing queued dialog lines    
+{ // Open class body    
+    public static DialogManager Instance { get; private set; } // Global static access instance    
+    
+    [SerializeField] private TMP_Text textBoxText; // TextMeshPro UI text component reference    
+    [SerializeField] private GameObject textBoxPanel; // Container UI panel reference    
+    
+    private Queue<DialogItem> dialogQueue = new Queue<DialogItem>(); // Active dialog queue pipeline    
+    
+    private void Awake() => Instance = this; // Set static instance reference on awake    
+    
+    public void StartDialog(DialogItem[] lines) // Public method starting new dialog sequence    
+    { // Open StartDialog body    
+        dialogQueue.Clear(); // Clear any remaining residual queued items    
+        foreach (DialogItem item in lines) dialogQueue.Enqueue(item); // Enqueue all conversation lines    
+    
+        textBoxPanel.SetActive(true); // Display text box container UI    
+        DisplayNextLine(); // Display initial dialog line from queue    
+    } // Close StartDialog body    
+    
+    public void DisplayNextLine() // Progresses to next queued line or ends dialog    
+    { // Open DisplayNextLine body    
+        if (dialogQueue.Count > 0) // Check if remaining lines exist in queue    
+        { // Open if block    
+            DialogItem currentItem = dialogQueue.Dequeue(); // Remove and retrieve next line item    
+            textBoxText.text = currentItem.dialogLine.Replace("%player%", "Charlie"); // Substitute dynamic player string tag    
+        } // Close if block    
+        else // Execute when queue is fully depleted    
+        { // Open else block    
+            textBoxPanel.SetActive(false); // Hide text box UI container    
+        } // Close else block    
+    } // Close DisplayNextLine body    
+} // Close class body
+Typewriter Effect Coroutine with TextMeshPro:
+using System.Collections; // Import standard C# collections for IEnumerator    
+using TMPro; // Import TextMeshPro framework namespace    
+using UnityEngine; // Import standard engine namespace    
+    
+public class TypewriterEffect : MonoBehaviour // Script animating text output character by character    
+{ // Open class body    
+    [SerializeField] private TMP_Text textDisplay; // Reference to TextMeshPro text output component    
+    [SerializeField] private float delayBetweenChars = 0.05f; // Time delay between rendering characters    
+    
+    public void DisplayText(string fullText) // Public method starting typewriter animation    
+    { // Open DisplayText body    
+        StopAllCoroutines(); // Cancel any active typewriter animation running    
+        StartCoroutine(AddOneCharEnumerator(fullText)); // Start character typing coroutine    
+    } // Close DisplayText body    
+    
+    private IEnumerator AddOneCharEnumerator(string fullText) // Coroutine iterating through text characters    
+    { // Open coroutine body    
+        textDisplay.text = ""; // Clear existing text string    
+        for (int i = 0; i < fullText.Length; i++) // Iterate through string character by character    
+        { // Open for loop    
+            textDisplay.text += fullText[i]; // Append single character to text component    
+            yield return new WaitForSeconds(delayBetweenChars); // Delay execution before adding next character    
+        } // Close for loop    
+    } // Close coroutine body    
+} // Close class body

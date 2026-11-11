@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08776c9303b15594ab5d07d2b8095459, type: 3}
+  m_Name: WateringCanTool
+  m_EditorClassIdentifier: Assembly-CSharp::WateringCanTool
+  itemName: Watering Can
+  description: 
+  icon: {fileID: -7095016777491341981, guid: bce528f98017fcc4d8e3f0ab1d377c1e, type: 3}
+  buyPrice: 0
+  sellPrice: 0
+  usesTileTargeting: 1
