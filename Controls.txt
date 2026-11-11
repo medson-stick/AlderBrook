@@ -1,3 +1,4 @@
 WASD - Movement
 Leftclick - Till, water, and plant seeds. 
 E - Interact with objects and shops
+1 - switch tools

@@ -10,3 +10,8 @@ This prototype will contain:
 I don't want the game to be a 1-to-1 replica, but it will be inspired by the other games. After this semester, I intend on expanding the world, systems, and interactions the player can have.
 
 THIS IS A SOLO PROJECT
+
+Currently in the project there is:
+- brown tiles for planting crops and tilling
+- shop where if u stand at base of it and press e, it will open shop
+- blue bed to right of scene where if u hit e, it will fade out and then in to the next day
