@@ -4,4 +4,5 @@ using UnityEngine.Events;
 public static class GameEvents
 {
     public static UnityEvent<int> NewDay = new UnityEvent<int>();
+    public static UnityEvent TimeChanged = new UnityEvent();
 }

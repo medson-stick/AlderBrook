@@ -46,7 +46,7 @@ public class InventoryUI : MonoBehaviour
             for (int i = 0; i < gridSlots.Length; i++) gridSlots[i].Bind(i, this);
         }
 
-        EnsureHeldVisual();
+        if (heldItemRoot != null) heldItemRect = heldItemRoot.GetComponent<RectTransform>();
         UpdateHeldVisual();
     }
 
@@ -223,7 +223,6 @@ public class InventoryUI : MonoBehaviour
     // Keeps the dragged item centered on the mouse while a stack is held.
     private void UpdateHeldVisual()
     {
-        EnsureHeldVisual();
         if (heldItemRoot == null) return;
 
         bool holding = heldStack != null && heldStack.item != null;
@@ -257,46 +256,5 @@ public class InventoryUI : MonoBehaviour
                 heldItemRect.position = worldPoint;
             }
         }
-    }
-
-    // Uses the scene-authored held icon, or builds a minimal fallback if it is missing.
-    private void EnsureHeldVisual()
-    {
-        if (heldItemRoot != null)
-        {
-            if (heldItemRect == null) heldItemRect = heldItemRoot.GetComponent<RectTransform>();
-            return;
-        }
-
-        GameObject root = new GameObject("HeldItemFallback", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        root.transform.SetParent(transform, false);
-
-        RectTransform rootRect = root.GetComponent<RectTransform>();
-        rootRect.anchorMin = Vector2.zero;
-        rootRect.anchorMax = Vector2.zero;
-        rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.sizeDelta = new Vector2(56f, 56f);
-
-        Image rootImage = root.GetComponent<Image>();
-        rootImage.color = new Color(0.32f, 0.26f, 0.18f, 0.9f);
-        rootImage.raycastTarget = false;
-
-        GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        iconObject.transform.SetParent(root.transform, false);
-
-        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
-        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
-        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
-        iconRect.pivot = new Vector2(0.5f, 0.5f);
-        iconRect.sizeDelta = new Vector2(48f, 48f);
-
-        Image iconImage = iconObject.GetComponent<Image>();
-        iconImage.raycastTarget = false;
-        iconImage.preserveAspect = true;
-
-        heldItemRoot = root;
-        heldItemRect = rootRect;
-        heldItemIcon = iconImage;
-        root.SetActive(false);
     }
 }

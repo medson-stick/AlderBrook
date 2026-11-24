@@ -1,15 +1,17 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 // Draws a single inventory slot and forwards clicks/drags to the owning InventoryUI.
 // Clicking picks up/places a stack; dragging moves it and drops it on release.
 public class InventorySlotUI : MonoBehaviour, IPointerClickHandler, IBeginDragHandler, IDragHandler, IEndDragHandler
 {
     [Header("References")]
-    [SerializeField] private UnityEngine.UI.Image background;
-    [SerializeField] private UnityEngine.UI.Image icon;
-    [SerializeField] private TMPro.TMP_Text amountText;
-    [SerializeField] private UnityEngine.UI.Image selection;
+    [SerializeField] private Image background;
+    [SerializeField] private Image icon;
+    [SerializeField] private TMP_Text amountText;
+    [SerializeField] private Image selection;
 
     [Header("Colors")]
     [SerializeField] private Color emptyColor = new Color(0.18f, 0.14f, 0.1f, 0.9f);

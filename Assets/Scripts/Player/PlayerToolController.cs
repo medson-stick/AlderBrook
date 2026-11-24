@@ -6,15 +6,11 @@ using TMPro;
 public class PlayerToolController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private PlayerController playerController;
     [SerializeField] private TMP_Text selectedToolText;
-    [SerializeField] private TileHoverHighlight tileHighlight;
+    [SerializeField] private Camera targetCamera;
 
     [Header("Tool Targeting")]
     [SerializeField] private int selectedSlotIndex;
-    [SerializeField] private float toolOffset = 0.75f;
-    [SerializeField] private float toolRadius = 0.45f;
-    [SerializeField] private LayerMask interactableLayer;
 
     public int SelectedSlotIndex => selectedSlotIndex;
 
@@ -26,6 +22,12 @@ public class PlayerToolController : MonoBehaviour
             if (PlayerInventory.Instance == null) return null;
             return PlayerInventory.Instance.GetItem(selectedSlotIndex) as ToolData;
         }
+    }
+
+    // Caches the camera used to find the tile under the mouse.
+    private void Awake()
+    {
+        if (targetCamera == null) targetCamera = Camera.main;
     }
 
     // Shows the starting hotbar item name.
@@ -65,30 +67,32 @@ public class PlayerToolController : MonoBehaviour
         selectedToolText.text = item != null ? item.itemName : string.Empty;
     }
 
-    // Uses the highlighted plot when possible, otherwise falls back to the facing tile.
+    // Uses the tool on the farm plot under the mouse.
     private void UseSelectedTool()
     {
         ToolData tool = SelectedTool;
         if (tool == null || !tool.usesTileTargeting) return;
 
-        if (tileHighlight != null && tileHighlight.HasActiveTile)
-        {
-            tool.UseOn(tileHighlight.ActivePlot);
-            return;
-        }
+        FarmPlot plot = FindPlotUnderMouse();
+        if (plot != null) tool.UseOn(plot);
+    }
 
-        if (playerController == null) return;
+    // Finds the farm plot collider under the mouse cursor.
+    private FarmPlot FindPlotUnderMouse()
+    {
+        if (targetCamera == null || Mouse.current == null) return null;
 
-        Vector2 targetPosition = (Vector2)playerController.transform.position + playerController.FacingDirection * toolOffset;
-        Collider2D[] hits = Physics2D.OverlapCircleAll(targetPosition, toolRadius, interactableLayer);
+        Vector2 screenPosition = Mouse.current.position.ReadValue();
+        Vector3 worldPosition = targetCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, -targetCamera.transform.position.z));
+        worldPosition.z = 0f;
 
+        Collider2D[] hits = Physics2D.OverlapPointAll(worldPosition);
         foreach (Collider2D hit in hits)
         {
             FarmPlot plot = hit.GetComponent<FarmPlot>();
-            if (plot == null) continue;
-
-            tool.UseOn(plot);
-            return;
+            if (plot != null) return plot;
         }
+
+        return null;
     }
 }

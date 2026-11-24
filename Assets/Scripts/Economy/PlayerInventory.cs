@@ -85,13 +85,6 @@ public class PlayerInventory : MonoBehaviour
         return stack == null ? null : stack.item;
     }
 
-    // Returns how many items are stored in a specific slot.
-    public int GetAmount(int index)
-    {
-        ItemStack stack = GetStack(index);
-        return stack == null ? 0 : stack.amount;
-    }
-
     // Adds items to an existing stack of the same item, then to the first empty slot.
     public bool AddItem(ItemData item, int amount)
     {
@@ -137,19 +130,6 @@ public class PlayerInventory : MonoBehaviour
         return true;
     }
 
-    // Removes items from one specific slot.
-    public bool RemoveFromSlot(int index, int amount)
-    {
-        ItemStack stack = GetStack(index);
-        if (stack == null || amount <= 0 || stack.amount < amount) return false;
-
-        stack.amount -= amount;
-        if (stack.amount <= 0) slots[index] = null;
-
-        onInventoryChanged.Invoke();
-        return true;
-    }
-
     // Removes and returns the whole stack in a slot, or null when empty.
     public ItemStack TakeStack(int index)
     {
@@ -183,12 +163,6 @@ public class PlayerInventory : MonoBehaviour
             if (stack != null && stack.item == item) total += stack.amount;
         }
         return total;
-    }
-
-    // Checks whether the inventory holds at least the requested amount.
-    public bool HasItem(ItemData item, int amount)
-    {
-        return GetAmount(item) >= amount;
     }
 
     // Finds the first slot without an item.

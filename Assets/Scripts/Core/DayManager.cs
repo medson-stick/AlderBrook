@@ -35,8 +35,6 @@ public class DayManager : MonoBehaviour
         Instance = this;
 
         screenFader = FindFirstObjectByType<ScreenFader>();
-        if (screenFader == null) screenFader = gameObject.AddComponent<ScreenFader>();
-
         playerController = FindFirstObjectByType<PlayerController>();
     }
 
@@ -46,6 +44,7 @@ public class DayManager : MonoBehaviour
         CurrentDay = startingDay;
         CurrentHour = dayStartHour;
         CurrentMinute = 0;
+        GameEvents.TimeChanged.Invoke();
     }
 
     // Advances the clock as real time passes.
@@ -70,7 +69,13 @@ public class DayManager : MonoBehaviour
             CurrentHour++;
         }
 
-        if (CurrentHour >= dayEndHour) StartNewDay();
+        if (CurrentHour >= dayEndHour)
+        {
+            StartNewDay();
+            return;
+        }
+
+        GameEvents.TimeChanged.Invoke();
     }
 
     // Starts the fade-out, advances the day, then fades back in.
@@ -93,6 +98,7 @@ public class DayManager : MonoBehaviour
         CurrentMinute = 0;
         minuteTimer = 0f;
         GameEvents.NewDay.Invoke(CurrentDay);
+        GameEvents.TimeChanged.Invoke();
 
         if (screenFader != null) yield return screenFader.FadeIn(fadeDuration);
         if (playerController != null) playerController.SetInputEnabled(true);

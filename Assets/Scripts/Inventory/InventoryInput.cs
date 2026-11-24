@@ -1,59 +1,48 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-// Reads Tab for the inventory and the number row / mouse wheel for hotbar selection.
+// Receives PlayerInput action messages (Send Messages behavior) for inventory and hotbar input.
 public class InventoryInput : MonoBehaviour
 {
     [SerializeField] private InventoryUI inventoryUI;
     [SerializeField] private PlayerToolController toolController;
 
-    // Finds the UI and tool controller when they are not assigned in the inspector.
-    private void Awake()
+    private int lastScrollFrame = -1;
+
+    // Tab toggles the inventory panel. PlayerInput only sends "performed" for buttons.
+    public void OnToggleInventory(InputValue value)
     {
-        if (inventoryUI == null) inventoryUI = FindFirstObjectByType<InventoryUI>();
-        if (toolController == null) toolController = FindFirstObjectByType<PlayerToolController>();
+        if (value.isPressed && inventoryUI != null) inventoryUI.Toggle();
     }
 
-    // Polls keyboard and mouse every frame for inventory and hotbar input.
-    private void Update()
+    public void OnHotbar1(InputValue value) { SelectHotbar(0, value); }
+    public void OnHotbar2(InputValue value) { SelectHotbar(1, value); }
+    public void OnHotbar3(InputValue value) { SelectHotbar(2, value); }
+    public void OnHotbar4(InputValue value) { SelectHotbar(3, value); }
+    public void OnHotbar5(InputValue value) { SelectHotbar(4, value); }
+    public void OnHotbar6(InputValue value) { SelectHotbar(5, value); }
+    public void OnHotbar7(InputValue value) { SelectHotbar(6, value); }
+    public void OnHotbar8(InputValue value) { SelectHotbar(7, value); }
+    public void OnHotbar9(InputValue value) { SelectHotbar(8, value); }
+    public void OnHotbar0(InputValue value) { SelectHotbar(9, value); }
+
+    // Mouse wheel cycles the hotbar while the inventory is closed.
+    public void OnHotbarScroll(InputValue value)
     {
-        if (inventoryUI == null || Keyboard.current == null) return;
+        if (inventoryUI == null || toolController == null || inventoryUI.IsOpen) return;
+        if (lastScrollFrame == Time.frameCount) return;
 
-        if (Keyboard.current.tabKey.wasPressedThisFrame) inventoryUI.Toggle();
+        Vector2 scroll = value.Get<Vector2>();
+        if (Mathf.Abs(scroll.y) < 0.01f) return;
 
-        if (inventoryUI.IsOpen && Keyboard.current.escapeKey.wasPressedThisFrame) inventoryUI.Close();
-
-        for (int i = 0; i < PlayerInventory.HotbarSize; i++)
-        {
-            if (Keyboard.current[GetHotbarKey(i)].wasPressedThisFrame) inventoryUI.SelectHotbar(i);
-        }
-
-        if (!inventoryUI.IsOpen && toolController != null && Mouse.current != null)
-        {
-            float scroll = Mouse.current.scroll.ReadValue().y;
-            if (Mathf.Abs(scroll) > 0.01f)
-            {
-                toolController.CycleSlot(scroll > 0f ? -1 : 1);
-                inventoryUI.Refresh();
-            }
-        }
+        lastScrollFrame = Time.frameCount;
+        toolController.CycleSlot(scroll.y > 0f ? -1 : 1);
+        inventoryUI.Refresh();
     }
 
-    // Maps hotbar index 0-9 to the number keys 1-9 and 0.
-    private static Key GetHotbarKey(int index)
+    // Selects a hotbar slot when its number key is pressed.
+    private void SelectHotbar(int index, InputValue value)
     {
-        switch (index)
-        {
-            case 0: return Key.Digit1;
-            case 1: return Key.Digit2;
-            case 2: return Key.Digit3;
-            case 3: return Key.Digit4;
-            case 4: return Key.Digit5;
-            case 5: return Key.Digit6;
-            case 6: return Key.Digit7;
-            case 7: return Key.Digit8;
-            case 8: return Key.Digit9;
-            default: return Key.Digit0;
-        }
+        if (value.isPressed && inventoryUI != null) inventoryUI.SelectHotbar(index);
     }
 }

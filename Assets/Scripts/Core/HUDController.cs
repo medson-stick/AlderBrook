@@ -1,7 +1,7 @@
 using TMPro;
 using UnityEngine;
 
-// Updates the day, time, and money text on the HUD.
+// Updates the day, time, and money text on the HUD only when values change.
 public class HUDController : MonoBehaviour
 {
     [Header("HUD Text")]
@@ -9,7 +9,7 @@ public class HUDController : MonoBehaviour
     [SerializeField] private TMP_Text timeText;
     [SerializeField] private TMP_Text moneyText;
 
-    // Subscribes to wallet changes and shows the starting money.
+    // Subscribes to wallet and clock changes.
     private void Start()
     {
         if (PlayerWallet.Instance != null)
@@ -17,18 +17,23 @@ public class HUDController : MonoBehaviour
             PlayerWallet.Instance.onMoneyChanged.AddListener(UpdateMoney);
             UpdateMoney(PlayerWallet.Instance.Money);
         }
+
+        GameEvents.TimeChanged.AddListener(UpdateTime);
+        UpdateTime();
     }
 
-    // Removes the wallet listener when the HUD is destroyed.
+    // Removes the listeners when the HUD is destroyed.
     private void OnDestroy()
     {
         if (PlayerWallet.Instance != null) PlayerWallet.Instance.onMoneyChanged.RemoveListener(UpdateMoney);
+        GameEvents.TimeChanged.RemoveListener(UpdateTime);
     }
 
-    // Refreshes the day and time every frame.
-    private void Update()
+    // Updates the day and time labels.
+    private void UpdateTime()
     {
         if (DayManager.Instance == null) return;
+
         if (dayText != null) dayText.text = $"Day {DayManager.Instance.CurrentDay}";
         if (timeText != null) timeText.text = DayManager.Instance.GetTimeString();
     }
