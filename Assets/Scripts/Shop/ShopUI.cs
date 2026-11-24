@@ -61,6 +61,7 @@ public class ShopUI : MonoBehaviour
             foreach (ItemStack stack in PlayerInventory.Instance.Items)
             {
                 if (stack.item == null || stack.amount <= 0) continue;
+                if (stack.item is ToolData && !(stack.item is SeedItemData)) continue;
                 ShopRowUI row = Instantiate(rowPrefab, sellContent);
                 row.SetupForSell(activeShop, stack.item, this);
             }

@@ -12,6 +12,7 @@ public class PlayerInteractor : MonoBehaviour
     public void OnInteract(InputValue value)
     {
         if (!value.isPressed) return;
+        if (InventoryUI.Instance != null && InventoryUI.Instance.IsOpen) return;
         TryInteract();
     }
 

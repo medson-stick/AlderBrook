@@ -1,4 +1,8 @@
 WASD - Movement
-Leftclick - Till, water, and plant seeds. 
+Leftclick - Till, water, and plant seeds (while inventory is closed)
 E - Interact with objects and shops
-1 - switch tools
+1-0 - Select hotbar slot
+Mouse wheel - Cycle hotbar
+Tab - Open/close inventory
+Drag item - Hold left mouse on an item and drop it on another slot to move/swap
+Click item then click slot - Alternative click-to-move

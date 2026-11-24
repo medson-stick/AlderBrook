@@ -2,84 +2,78 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using TMPro;
 
-// Handles tool selection and using tools on farm plots.
+// Handles hotbar slot selection and using the active item/tool on farm plots.
 public class PlayerToolController : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private PlayerController playerController;
-    [SerializeField] private ToolData[] tools;
     [SerializeField] private TMP_Text selectedToolText;
     [SerializeField] private TileHoverHighlight tileHighlight;
 
     [Header("Tool Targeting")]
+    [SerializeField] private int selectedSlotIndex;
     [SerializeField] private float toolOffset = 0.75f;
     [SerializeField] private float toolRadius = 0.45f;
     [SerializeField] private LayerMask interactableLayer;
 
-    private int selectedToolIndex;
+    public int SelectedSlotIndex => selectedSlotIndex;
 
+    // The active slot's item only works as a tool when it is ToolData.
     public ToolData SelectedTool
     {
         get
         {
-            if (tools == null || tools.Length == 0) return null;
-            return tools[selectedToolIndex];
+            if (PlayerInventory.Instance == null) return null;
+            return PlayerInventory.Instance.GetItem(selectedSlotIndex) as ToolData;
         }
     }
 
-    // Shows the starting tool name.
+    // Shows the starting hotbar item name.
     private void Start()
     {
-        UpdateToolLabel();
+        SelectSlot(selectedSlotIndex);
     }
 
     // Uses the selected tool when Attack is pressed.
     public void OnAttack(InputValue value)
     {
         if (!value.isPressed) return;
+        if (InventoryUI.Instance != null && InventoryUI.Instance.IsOpen) return;
         UseSelectedTool();
     }
 
-    // Selects the next tool.
-    public void OnNext(InputValue value)
+    // Makes a hotbar slot active and refreshes the tool name label.
+    public void SelectSlot(int index)
     {
-        if (!value.isPressed) return;
-        CycleTool(1);
-    }
-
-    // Selects the previous tool.
-    public void OnPrevious(InputValue value)
-    {
-        if (!value.isPressed) return;
-        CycleTool(-1);
-    }
-
-    // Changes the selected tool index with wrap-around.
-    private void CycleTool(int direction)
-    {
-        if (tools == null || tools.Length == 0) return;
-
-        selectedToolIndex = (selectedToolIndex + direction + tools.Length) % tools.Length;
-        if (SelectedTool != null) Debug.Log($"Selected tool: {SelectedTool.itemName}");
+        selectedSlotIndex = Mathf.Clamp(index, 0, PlayerInventory.HotbarSize - 1);
         UpdateToolLabel();
     }
 
-    // Updates the optional tool name label.
+    // Cycles through the hotbar row with wrap-around.
+    public void CycleSlot(int direction)
+    {
+        int next = (selectedSlotIndex + direction + PlayerInventory.HotbarSize) % PlayerInventory.HotbarSize;
+        SelectSlot(next);
+    }
+
+    // Updates the optional active item name label.
     private void UpdateToolLabel()
     {
         if (selectedToolText == null) return;
-        selectedToolText.text = SelectedTool != null ? SelectedTool.itemName : "No Tool";
+
+        ItemData item = PlayerInventory.Instance != null ? PlayerInventory.Instance.GetItem(selectedSlotIndex) : null;
+        selectedToolText.text = item != null ? item.itemName : string.Empty;
     }
 
     // Uses the highlighted plot when possible, otherwise falls back to the facing tile.
     private void UseSelectedTool()
     {
-        if (SelectedTool == null) return;
-        if (!SelectedTool.usesTileTargeting) return;
+        ToolData tool = SelectedTool;
+        if (tool == null || !tool.usesTileTargeting) return;
 
         if (tileHighlight != null && tileHighlight.HasActiveTile)
         {
-            SelectedTool.UseOn(tileHighlight.ActivePlot);
+            tool.UseOn(tileHighlight.ActivePlot);
             return;
         }
 
@@ -93,7 +87,7 @@ public class PlayerToolController : MonoBehaviour
             FarmPlot plot = hit.GetComponent<FarmPlot>();
             if (plot == null) continue;
 
-            SelectedTool.UseOn(plot);
+            tool.UseOn(plot);
             return;
         }
     }
